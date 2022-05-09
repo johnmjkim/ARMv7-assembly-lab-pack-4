@@ -261,12 +261,40 @@ reset_SysTick:
 .size reset_SysTick, .-reset_SysTick
 
 
-.type set_TIM0, %function
+.type start_TIMER0, %function
+@ Starts the timer.
+@ --parameters--
+@ none
+start_TIMER0:
+  @ Start TIMER0
+  ldr r0, =ADR_TIMER0
+  ldr r1, =OFS_TIMER_TASKS_START
+  mov r2, 1
+  str r2, [r0, r1]
+  bx lr
+.size start_TIMER0, .-start_TIMER0
+
+
+.type stop_TIMER0, %function
+@ Stops the timer.
+@ --parameters--
+@ none
+stop_TIMER0:
+  @ Stop TIMER0
+  ldr r0, =ADR_TIMER0
+  ldr r1, =OFS_TIMER_TASKS_STOP
+  mov r2, 1
+  str r2, [r0, r1]
+  bx lr
+.size stop_TIMER0, .-stop_TIMER0
+
+
+.type set_TIMER0, %function
 @ Sets the new compare value for TIMER0.
 @ Requires TIMER0 to be stopped.
 @ --parameters--
 @ r0: time in microseconds for interrupt rate
-set_TIM0:
+set_TIMER0:
   push {r0}
   @ Set prescaler to 4 to get a 1 microsecond interrupt granularity
   ldr r0, =ADR_TIMER0
@@ -281,49 +309,21 @@ set_TIM0:
   ldr r1, =OFS_TIMER_CC0
   str r2, [r0, r1]
   bx lr
-.size set_TIM0, .-set_TIM0
+.size set_TIMER0, .-set_TIMER0
 
 
-.type start_TIM0, %function
-@ Starts the timer.
-@ --parameters--
-@ none
-start_TIM0:
-  @ Start TIM0
-  ldr r0, =ADR_TIMER0
-  ldr r1, =OFS_TIMER_TASKS_START
-  mov r2, 1
-  str r2, [r0, r1]
-  bx lr
-.size start_TIM0, .-start_TIM0
-
-
-.type stop_TIM0, %function
-@ Stops the timer.
-@ --parameters--
-@ none
-stop_TIM0:
-  @ Stop TIMER0
-  ldr r0, =ADR_TIMER0
-  ldr r1, =OFS_TIMER_TASKS_STOP
-  mov r2, 1
-  str r2, [r0, r1]
-  bx lr
-.size stop_TIM0, .-stop_TIM0
-
-
-.type clear_TIM0, %function
+.type clear_TIMER0, %function
 @ Clears the current count value of the timer.
 @ --parameters--
 @ none
-clear_TIM0:
+clear_TIMER0:
   @ Clear the internal timer count register
   ldr r0, =ADR_TIMER0
   ldr r1, =OFS_TIMER_TASKS_CLEAR
   mov r2, 1
   str r2, [r0, r1]
   bx lr
-.size clear_TIM0, .-clear_TIM0
+.size clear_TIMER0, .-clear_TIMER0
 
 
 .type init_TIMER0, %function
