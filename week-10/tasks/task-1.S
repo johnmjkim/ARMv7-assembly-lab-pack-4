@@ -79,7 +79,7 @@ SysTick_Handler_do:
   @ str r1, [r0]
   pop {r2, r3}
   ldr r0, =systic_repeat
-  mov r2, 100
+  ldr r2, [r0, 4]
   str r2, [r0]
   b SysTick_Handler_end
 SysTick_Handler_pass:
@@ -207,9 +207,9 @@ setupSYSTICK:
   str r1, [r0]
 
   @ SysTick to interrupt at a constant rate
-  @ count down from ONE_MILLISECONDS (0.64M =0x9C400) cycles repeating 100 times
+  @ count down from FIFTY_MILLISECONDS (3.2M cycles) repeating 5 times
   ldr r0, =SYST_RVR
-  ldr r1, =ONE_MILLISECONDS
+  ldr r1, =FIFTY_MILLISECOND
   str r1, [r0]
 
   @ @ set priority of SYSTICK
@@ -223,13 +223,12 @@ setupSYSTICK:
 
 .data
 systic_repeat:
-.word 100
+.word 5, 5
 
 .data
-.set ONE_MILLISECONDS, 0x9C400 @ 0.64M cycles
-.set FIFTY_MILLISECONDS, 0x30D400 @ 3.2M cycles
-.set ONE_SECOND, 0x3D09000 @ 64M cycles
-.set HUNDRED_MILLISECONDS, 0x61A800 @ 6.4M cycles
+.set ONE_MILLISECOND, 0xFA00 @ 64K cycles
+.set TEN_MILLISECOND, 0x9C400 @ 0.64M cycles
+.set FIFTY_MILLISECOND, 0xF42400 @ 3.2M cycles
 
 @ SysTick register
 .set SYST_CSR, 0xE000E010
