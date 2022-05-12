@@ -21,6 +21,14 @@ main:
 .size main, .-main
 
 loop:
+
+  b loop
+
+.global GPIOTE_IRQHandler
+.type GPIOTE_IRQHandler, %function
+GPIOTE_IRQHandler:
+  push {lr}
+
   ldr r0, =ADR_P0
   ldr r1, =OFS_GPIO_IN
   ldr r2, [r0, r1]
@@ -35,10 +43,23 @@ loop:
   IT EQ
   bleq led_center_off
 
-  b loop
+  @ clear NVIC pending interrupt
 
-end:
-  b end
+  @ NVIC_ICPR0: B3.4.7 in ARMv7-M Reference Manual
+  ldr r0, =NVIC_ICPR0
+  ldr r1, =(1 << 6) @ set the 6th bit since NVIC_GPIOTE_ID = 6
+  str r1, [r0]
+
+  @ @ 3: disable GPIOTE (interrupt #6 = NVIC_GPIOTE_ID) in NVIC_ICER0
+  @ @ NVIC_ICER0: B3.4.5 in ARMv7-M Reference Manual
+  @ ldr r0, =NVIC_ICER0
+  @ ldr r1, =(1 << 6) @ set the 6th bit since NVIC_GPIOTE_ID = 6
+  @ str r1, [r0]
+
+  nop
+  pop {lr}
+  bx lr
+.size GPIOTE_IRQHandler, .-GPIOTE_IRQHandler
 
 .global SysTick_Handler
 .type SysTick_Handler, %function
@@ -67,16 +88,6 @@ SysTick_Handler_do:
   eor r2, r2, r3
   str r2, [r0, r1]
 
-  @ @ clear GPIOTE and NVIC pending interrupt
-  @ @ clear event for button A
-  @ push {lr}
-  @ bl clearAevent
-  @ pop {lr}
-
-  @ @ NVIC_ICPR0: B3.4.7 in ARMv7-M Reference Manual
-  @ ldr r0, =NVIC_ICPR0
-  @ ldr r1, =(1 << 6) @ set the 6th bit since NVIC_GPIOTE_ID = 6
-  @ str r1, [r0]
   pop {r2, r3}
   ldr r0, =systic_repeat
   ldr r2, [r0, 4]
@@ -182,17 +193,17 @@ setupRING:
   ldr r1, =(1 | 4 << 8 | 0 << 13 | 1 << 16)
   str r1, [r0]
 
-  @ @ 2: Enable Interrupt for GPIOTE[2] (id = 6)
-  @ @ S6.9.4.6 in nRF52833 reference manual
-  @ ldr r0, =GPIOTE_INTENSET
-  @ ldr r1, =(1 << 2)
-  @ str r1, [r0]
+  @ 2: Enable Interrupt for GPIOTE[2] (id = 6)
+  @ S6.9.4.6 in nRF52833 reference manual
+  ldr r0, =GPIOTE_INTENSET
+  ldr r1, =(1 << 2)
+  str r1, [r0]
 
-  @ @ 3: enable GPIOTE (interrupt #6 = NVIC_GPIOTE_ID) in NVIC_ISER0
-  @ @ NVIC_ISER0: B3.4.4 in ARMv7-M Reference Manual
-  @ ldr r0, =NVIC_ISER0
-  @ ldr r1, =(1 << 6) @ set the 6th bit since NVIC_GPIOTE_ID = 6
-  @ str r1, [r0]
+  @ 3: enable GPIOTE (interrupt #6 = NVIC_GPIOTE_ID) in NVIC_ISER0
+  @ NVIC_ISER0: B3.4.4 in ARMv7-M Reference Manual
+  ldr r0, =NVIC_ISER0
+  ldr r1, =(1 << 6) @ set the 6th bit since NVIC_GPIOTE_ID = 6
+  str r1, [r0]
 
   bx lr
 .size setupRING, .-setupRING
@@ -255,20 +266,6 @@ systic_repeat:
 .set NVIC_ICER0, 0xE000E180
 .set NVIC_ICPR0, 0xE000E280
 .set NVIC_IPR1, 0xE000E404
-
-.global GPIOTE_IRQHandler
-.type GPIOTE_IRQHandler, %function
-GPIOTE_IRQHandler:
-
-  @ @ 3: disable GPIOTE (interrupt #6 = NVIC_GPIOTE_ID) in NVIC_ICER0
-  @ @ NVIC_ICER0: B3.4.5 in ARMv7-M Reference Manual
-  @ ldr r0, =NVIC_ICER0
-  @ ldr r1, =(1 << 6) @ set the 6th bit since NVIC_GPIOTE_ID = 6
-  @ str r1, [r0]
-
-  nop
-  bx lr
-.size GPIOTE_IRQHandler, .-GPIOTE_IRQHandler
 
 @ .type setupGPIOTE, %function
 @ setupGPIOTE:
