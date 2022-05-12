@@ -9,10 +9,12 @@ main:
   bl init_leds
   pop {lr}
 
+  @ setup RING 0, 2
   push {lr} 
   bl setupRING
   pop {lr}
 
+  @ setup SysTick
   push {lr} 
   bl setupSYSTICK
   pop {lr}
@@ -33,13 +35,14 @@ GPIOTE_IRQHandler:
   ldr r1, =OFS_GPIO_IN
   ldr r2, [r0, r1]
 
-  ldr r3, =0x40010
-  cmp r2, r3
+  and r3, r2, 0x10
+  @ bit 4 is high (pin 4 is high)
+  cmp r3, 0x10
   IT EQ
   bleq led_center_on
 
-  ldr r3, =0x40000
-  cmp r2, r3
+  @ bit 4 is low (pin 4 is low)
+  cmp r3, 0
   IT EQ
   bleq led_center_off
 
@@ -49,12 +52,6 @@ GPIOTE_IRQHandler:
   ldr r0, =NVIC_ICPR0
   ldr r1, =(1 << 6) @ set the 6th bit since NVIC_GPIOTE_ID = 6
   str r1, [r0]
-
-  @ @ 3: disable GPIOTE (interrupt #6 = NVIC_GPIOTE_ID) in NVIC_ICER0
-  @ @ NVIC_ICER0: B3.4.5 in ARMv7-M Reference Manual
-  @ ldr r0, =NVIC_ICER0
-  @ ldr r1, =(1 << 6) @ set the 6th bit since NVIC_GPIOTE_ID = 6
-  @ str r1, [r0]
 
   nop
   pop {lr}
@@ -241,6 +238,7 @@ systic_repeat:
 .set TEN_MILLISECOND, 0x9C400 @ 0.64M cycles
 .set FIFTY_MILLISECOND, 0xF42400 @ 3.2M cycles
 
+
 @ SysTick register
 .set SYST_CSR, 0xE000E010
 .set SYST_RVR, 0xE000E014
@@ -266,42 +264,3 @@ systic_repeat:
 .set NVIC_ICER0, 0xE000E180
 .set NVIC_ICPR0, 0xE000E280
 .set NVIC_IPR1, 0xE000E404
-
-@ .type setupGPIOTE, %function
-@ setupGPIOTE:
-@   @ @ 1: Configure GPIOTE_CONFIG[0]
-@   @ @ Need to setup: mode, pin, port, polarity in the configuration register for GPIOTE[0]
-@   @ @ Section 6.9.4.8 in nRF52833 reference manual
-@   @ @ mode = 1 (event), pin = 2 and port = 0 (P0.02 = Ring 0), polarity = 1 (LoToHi)
-@   @ ldr r0, =GPIOTE_CONFIG0
-@   @ ldr r1, =(1 | 2 << 8 | 0 << 13 | 1 << 16)
-@   @ str r1, [r0]
-
-@   @ 1: Configure GPIOTE_CONFIG[2]
-@   @ Need to setup: mode, pin, port, polarity in the configuration register for GPIOTE[2]
-@   @ Section 6.9.4.8 in nRF52833 reference manual
-@   @ mode = 1 (event), pin = 4 and port = 0 (P0.04 = Ring 2), polarity = 1 (LoToHi)
-@   ldr r0, =GPIOTE_CONFIG2
-@   ldr r1, =(1 | 4 << 8 | 0 << 13 | 1 << 16)
-@   str r1, [r0]
-
-@   @ 2: Enable Interrupt for GPIOTE[2] (id = 6)
-@   @ S6.9.4.6 in nRF52833 reference manual
-@   ldr r0, =GPIOTE_INTENSET
-@   ldr r1, =0b100
-@   str r1, [r0]
-
-@   @ 3: enable GPIOTE (interrupt #6 = NVIC_GPIOTE_ID) in NVIC_ISER0
-@   @ NVIC_ISER0: B3.4.4 in ARMv7-M Reference Manual
-@   ldr r0, =NVIC_ISER0
-@   ldr r1, =(1 << 6) @ set the 6th bit since NVIC_GPIOTE_ID = 6
-@   str r1, [r0]
-
-@   @ @ 4: set priority of GPIOTE
-@   @ @ NVIC_IPR1: B3.4.9 in ARMv7-M Reference Manual
-@   @ ldr r0, =NVIC_IPR1
-@   @ ldr r1, =(1 << 21) @ set the 21-23th bit priority 1 (higher priority)
-@   @ str r1, [r0]
-
-@   bx lr
-@ .size setupGPIOTE, .-setupGPIOTE
