@@ -1,20 +1,17 @@
 #include <stdio.h>
 
-int addThreeNumbers( int a, int b, int c )
+void square(int *p)
 {
-    int sum =0;
-    sum += a;
-    sum += b;
-    sum += c;
-    return sum;
+    int val = *p;
+    val = val*val;
+    *p = val;
 }
 
 int main(void)
 {
-  int a = 3;
-  int b = 4;
-  int c = 7;
-  int sum = addThreeNumbers(a, b, c);
+  int x = 3;
+  int *p = &x;
+  square(p);
 
   return 0;
 }
