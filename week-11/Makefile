@@ -11,7 +11,7 @@ OPENOCD=$(COMP2300)/openocd/bin/openocd
 SRCS := $(shell find src lib -name '*.c' -or -name '*.S')
 OBJS := $(addsuffix .o,$(basename $(SRCS)))
 
-CFLAGS ?=-nostdlib -nostartfiles -mcpu=cortex-m4 -mthumb -Wall -Werror -g
+CFLAGS ?=-nostdlib -nostartfiles -mcpu=cortex-m4 -mthumb -Wall -Wno-error -g
 LDFLAGS ?=-nostdlib -T lib/link.ld --print-memory-usage
 
 TARGET ?= program.elf

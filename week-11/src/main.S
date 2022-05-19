@@ -1,14 +1,3 @@
-.syntax unified
-.global main
+@ Don't write anything in here, its just a placeholder :)
 
-.type main, %function
-main:
-  nop
-  ldr r0, =hello
-
-  b main
-.size main, .-main
-
-.data
-hello:
-.word 0x424242
+@ ... seriously just leave it blank
