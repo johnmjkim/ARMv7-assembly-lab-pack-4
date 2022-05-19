@@ -1,24 +1,15 @@
 #include <stdio.h>
 
-struct student {
-  int uid;
-  float score;
-  char firstname[20];
-  char lastname[20];
-};
-
-void cheating(struct student *stu_ptr)
-{
-  stu_ptr->score = 110;
-  char *p = stu_ptr->lastname;
-  p[0] = 'X';
-}
-
 int main(void)
 {
-  struct student full = {1234567, 77.6, "first", "last"};
-  struct student *stu_ptr = &full;
-  cheating(stu_ptr);
-  
+  // set P0.21 (ROW 1) and P0.28 (COL1) as OUTPUT
+  volatile int *GPIO_P0_DIR = (int*) 0x50000514;
+  *GPIO_P0_DIR = *GPIO_P0_DIR | (0x1 << 21);
+  *GPIO_P0_DIR = *GPIO_P0_DIR | (0x1 << 28);
+
+  // set P0.21 (ROW 1) output as HIGH
+  volatile int *GPIO_P0_OUT = (int*) 0x50000504;
+  *GPIO_P0_OUT = *GPIO_P0_OUT | (0x1 << 21);
+
   return 0;
 }
