@@ -9,10 +9,12 @@ main:
   bl init_leds
   pop {lr}
 
+  @ setup RING 0, 2
   push {lr} 
   bl setupRING
   pop {lr}
 
+  @ setup SysTick
   push {lr} 
   bl setupSYSTICK
   pop {lr}
