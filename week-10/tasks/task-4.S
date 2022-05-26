@@ -134,8 +134,18 @@ SysTick_Handler:
 GPIOTE_IRQHandler:
   push {lr}
   @ Write your wakeup etc. code here \/\/\/
+  @ GPIOTE detects falling edge
+  @ put variables in place for the receiver to successfully receive the message
+  @ ????
 
+  @ configure the TIMER0 interrupt period and enable it
+  bl init_TIMER0
+  bl start_TIMER0
 
+  @ disable the GPIOTE interrupt
+  bl disable_GPIOTE
+
+  @ clear its pending bit
   @ Clear GPIOTE event
   ldr r0, =ADR_GPIOTE
   ldr r1, =OFS_GPIOTE_EVENTS_IN0
@@ -151,7 +161,40 @@ GPIOTE_IRQHandler:
 TIMER0_IRQHandler:
   push {lr}
   @ Write your timer receive code here \/\/\/
+  @ receive the current bit from Ring2 (P0.02)
+  ldr r0, =ADR_P0
+  ldr r1, =OFS_GPIO_IN
+  ldr r2, [r0, r1]
 
+  ldr r3, =0x40000
+  cmp r2, r3
+  IT EQ
+  moveq r1, 0
+
+  ldr r3, =0x40010
+  cmp r2, r3
+  IT EQ
+  moveq r1, 1
+
+  ldr r0, =RECEIVER_DATA
+  str r1, [r0]
+
+  @ append the bit to the current message (in the correct location)
+  
+
+  @ check if it has received a full message
+
+
+  @ if it has received a full message it should:
+    @ check the validity of the message
+    @ turn off all LEDS and then turn the on the LED in the message
+    @ disable the TIMER0 interrupt
+    @ clear the GPIOTE pending (we don’t want it interrupting immediately if one was left pending)
+    @ enable the GPIOTE interrupt
+  
+  b receive_done
+
+  @ clear the TIMER0 pending bit
 receive_done:
   @ Clear this event
   ldr r0, =ADR_TIMER0
@@ -443,13 +486,82 @@ sync:
   bx lr
 .size sync, .-sync
 
+.type led_center_on, %function
+led_center_on:
+  push {r0, r1, lr}
+  mov r0, 2
+  mov r1, 2
+  bl led_on
+  pop {r0, r1, lr}
+  bx lr
+.size led_center_on, .-led_center_on
+
+.type led_center_off, %function
+led_center_off:
+  push {r0, r1, lr}
+  mov r0, 2
+  mov r1, 2
+  bl led_off
+  pop {r0, r1, lr}
+  bx lr
+.size led_center_off, .-led_center_off
+
+.type led_on, %function
+@ --parameters--
+@ r0: row index (0-4 with 0 being the top row)
+@ r1: column index (0-4 with 0 being the left most column)
+@ --return--
+@ none
+led_on:
+  push {r2}
+  ldr r2, =0b1
+  lsl r0, r2, r0
+  push {r1, lr}
+  bl write_row_pins
+  pop {r1, lr}
+
+  ldr r2, =0b1
+  lsl r1, r2, r1
+  ldr r0, =0b11111
+  eor r0, r0, r1
+  push {lr}
+  bl write_column_pins
+  pop {lr}
+
+  pop {r2}
+
+  bx lr
+.size led_on, .-led_on
+
+.type led_off, %function
+@ Interrupts and toggle led
+@ --parameters--
+@ none
+@ --return--
+@ none
+led_off:
+  push {r2}
+  ldr r0, =0b00000
+  push {lr}
+  bl write_row_pins
+  pop {lr}
+
+  ldr r0, =0b11111
+  push {lr}
+  bl write_column_pins
+  pop {lr}
+  pop {r2}
+
+  bx lr
+.size led_off, .-led_off
+
 .data
 packet_repeat:
 .word 0, 0, 10
 
 .data
 p2300_1w_packet:
-.word 0, 0, 1, 0, 0, 0, 0, 0, 1, 0
+.word 0, 1, 0, 0, 0, 1, 0, 0, 0, 0
 
 .data
 @ Add your state for sender and receiver here
