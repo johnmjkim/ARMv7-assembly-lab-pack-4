@@ -81,7 +81,7 @@ SysTick_Handler:
 SysTick_Handler_do:
 
   push {r2, r3}
-  @ toggle the output state of Ring 0
+  @ set the output state of Ring 0
   @ Read output state of RING 0
   @ pin = 2 and port = 0 (P0.02 = Ring 0)
   ldr r0, =packet_repeat
@@ -264,7 +264,7 @@ packet_repeat:
 
 .data
 p2300_1w_packet:
-.word 0, 0, 1, 0, 0, 0, 0, 1, 1, 0
+.word 0, 0, 1, 0, 0, 0, 0, 0, 1, 0
 
 .data
 .set ONE_MILLISECOND, 0xFA00 @ 64K cycles
