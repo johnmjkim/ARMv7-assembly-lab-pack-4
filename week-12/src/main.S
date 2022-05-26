@@ -8,10 +8,10 @@ main:
   bl init_leds
   pop {lr}
 
-  b loop
+  b ledblink
 .size main, .-main
 
-loop:
+ledblink:
   push {lr}
   bl leds_toggle
   pop {lr}
@@ -21,7 +21,7 @@ loop:
   bl delay
   pop {lr}
 
-  b loop
+  b ledblink
 
 .type leds_toggle, %function
 leds_toggle:
