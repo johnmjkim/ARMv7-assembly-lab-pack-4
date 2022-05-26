@@ -35,23 +35,27 @@ GPIOTE_IRQHandler:
   ldr r1, =OFS_GPIO_IN
   ldr r2, [r0, r1]
 
-  and r3, r2, 0x10
-  @ bit 4 is high (pin 4 is high)
-  cmp r3, 0x10
+  ldr r3, =0x40010
+  cmp r2, r3
   IT EQ
   bleq led_center_on
 
-  @ bit 4 is low (pin 4 is low)
-  cmp r3, 0
+  ldr r3, =0x40000
+  cmp r2, r3
   IT EQ
   bleq led_center_off
 
   @ clear NVIC pending interrupt
-
   @ NVIC_ICPR0: B3.4.7 in ARMv7-M Reference Manual
   ldr r0, =NVIC_ICPR0
   ldr r1, =(1 << 6) @ set the 6th bit since NVIC_GPIOTE_ID = 6
   str r1, [r0]
+
+  @ @ 3: disable GPIOTE (interrupt #6 = NVIC_GPIOTE_ID) in NVIC_ICER0
+  @ @ NVIC_ICER0: B3.4.5 in ARMv7-M Reference Manual
+  @ ldr r0, =NVIC_ICER0
+  @ ldr r1, =(1 << 6) @ set the 6th bit since NVIC_GPIOTE_ID = 6
+  @ str r1, [r0]
 
   nop
   pop {lr}
@@ -69,31 +73,54 @@ SysTick_Handler:
   nop
   push {lr}
   ldr r0, =systic_repeat
-  ldr r2, [r0]
-  cmp r2, 0
-  IT GT
-  blgt SysTick_Handler_pass
+  ldr r1, [r0]
+  ldr r2, [r0, 8]
+  cmp r1, r2
+  IT LT
+  bllt SysTick_Handler_pass
 SysTick_Handler_do:
+
   push {r2, r3}
   @ toggle the output state of Ring 0
   @ Read output state of RING 0
   @ pin = 2 and port = 0 (P0.02 = Ring 0)
+  ldr r0, =packet_repeat
+  ldr r1, [r0]
+  ldr r2, [r0, 8]
+  cmp r1, r2
+  IT EQ
+  ldreq r1, [r0, 4]
+  str r1, [r0]
+
+  mov r2, 4
+  mul r2, r1, r2
+
+  ldr r0, =p2300_1w_packet
+  ldr r1, [r0, r2]
+  lsl r2, r1, 2
+
   ldr r0, =ADR_P0
   ldr r1, =OFS_GPIO_OUT
-  ldr r2, [r0, r1]
-  ldr r3, =(1 << 2)
-  eor r2, r2, r3
   str r2, [r0, r1]
 
   pop {r2, r3}
+
+  @ to next packet
+  ldr r0, =packet_repeat
+  ldr r1, [r0]
+  add r1, 1
+  str r1, [r0]
+
+  @ reset systic repeat to 0
   ldr r0, =systic_repeat
   ldr r2, [r0, 4]
   str r2, [r0]
+
   b SysTick_Handler_end
 SysTick_Handler_pass:
-  sub r2, r2, 1
+  add r1, r1, 1
   ldr r0, =systic_repeat
-  str r2, [r0]
+  str r1, [r0]
   b SysTick_Handler_end
 SysTick_Handler_end:
   pop {lr}
@@ -180,8 +207,6 @@ setupRING:
   orr r2, r2, r3
   str r2, [r0, r1]
 
-  @ Configure RING 2
-
   @ 1: Configure GPIOTE_CONFIG[2]
   @ Need to setup: mode, pin, port, polarity in the configuration register for GPIOTE[2]
   @ Section 6.9.4.8 in nRF52833 reference manual
@@ -215,9 +240,9 @@ setupSYSTICK:
   str r1, [r0]
 
   @ SysTick to interrupt at a constant rate
-  @ count down from FIFTY_MILLISECONDS (3.2M cycles) repeating 5 times
+  @ count down from ONE_MILLISECONDS (64K cycles) repeating 0 times
   ldr r0, =SYST_RVR
-  ldr r1, =FIFTY_MILLISECOND
+  ldr r1, =ONE_MILLISECOND
   str r1, [r0]
 
   @ @ set priority of SYSTICK
@@ -231,13 +256,20 @@ setupSYSTICK:
 
 .data
 systic_repeat:
-.word 5, 5
+.word 0, 0, 0
+
+.data
+packet_repeat:
+.word 0, 0, 10
+
+.data
+p2300_1w_packet:
+.word 0, 0, 1, 0, 0, 0, 0, 1, 1, 0
 
 .data
 .set ONE_MILLISECOND, 0xFA00 @ 64K cycles
 .set TEN_MILLISECOND, 0x9C400 @ 0.64M cycles
 .set FIFTY_MILLISECOND, 0xF42400 @ 3.2M cycles
-
 
 @ SysTick register
 .set SYST_CSR, 0xE000E010
