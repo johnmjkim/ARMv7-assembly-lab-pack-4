@@ -193,7 +193,6 @@ create_process2:
 .type SysTick_Handler, %function
 SysTick_Handler:
   nop
-  ldr r0, sp
   @ a SysTick_Handler (make sure you re-enable the SysTick interrupt) which will
   @ read the first entry in the process table to find out which process is currently executing
   ldr r0, =process_table
