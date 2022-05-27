@@ -24,13 +24,19 @@ main:
 
   bl create_process1
   bl create_process2
-
+  b loop
 .size main, .-main
+
+loop:
+  nop
+  b loop
 
 .type ledblink, %function
 ledblink:
+  mov r0, 1
+  mov r1, 1
   push {lr}
-  bl leds_toggle
+  bl led_on
   pop {lr}
 
   ldr r0, =0x30D400
@@ -38,8 +44,10 @@ ledblink:
   bl delay
   pop {lr}
 
+  mov r0, 1
+  mov r1, 1
   push {lr}
-  bl leds_toggle
+  bl led_off
   pop {lr}
 
   ldr r0, =0x30D400
@@ -51,8 +59,10 @@ ledblink:
 
 .type otherblink, %function
 otherblink:
+  mov r0, 3
+  mov r1, 3
   push {lr}
-  bl leds_toggle_other
+  bl led_on
   pop {lr}
 
   ldr r0, =0x9C400
@@ -60,8 +70,10 @@ otherblink:
   bl delay
   pop {lr}
 
+  mov r0, 3
+  mov r1, 3
   push {lr}
-  bl leds_toggle_other
+  bl led_off
   pop {lr}
 
   ldr r0, =0x9C400
@@ -108,6 +120,7 @@ create_process1:
   str r0, [sp, 4]
   mov r0, 0
   str r0, [sp]
+  bx lr
 .size create_process1, .-create_process1
 
 .type create_process2, %function
@@ -147,6 +160,7 @@ create_process2:
   str r0, [sp, 4]
   mov r0, 0
   str r0, [sp]
+  bx lr
 .size create_process2, .-create_process2
 
 @ .type switch_context, %function
@@ -177,92 +191,82 @@ create_process2:
 .global SysTick_Handler
 .type SysTick_Handler, %function
 SysTick_Handler:
-  push {lr}
   nop
+  ldr r0, sp
   @ a SysTick_Handler (make sure you re-enable the SysTick interrupt) which will
   @ read the first entry in the process table to find out which process is currently executing
-  add r1, sp, 36
   ldr r0, =process_table
-  ldr r2, [r0, 4]
-  cmp r1, r2
-  IT EQ
-  moveq r3, 0
-  
-  ldr r2, [r0, 8]
-  cmp r1, r2
-  IT EQ
-  moveq r3, 1
+  ldr r1, [r0]
 
   @ pick the other process and swap that stack pointer into the sp register (but don’t change the pc yet!)
-  cmp r3, 0
+  @ update the process_table so that it shows the new process as executing
+  cmp r1, 1
+  IT EQ
+  moveq r2, 0
+  
+  cmp r1, 0
   IT EQ
   moveq r2, 1
 
-  cmp r3, 1
-  IT EQ
-  moveq r2, 0
-
-  @ update the process_table so that it shows the new process as executing
   str r2, [r0]
-  mov r1, r2
-  add r1, 1
-  mov r2, 4
-  mul r2, r1, r2
+  add r2, 1
+  mov r1, 4
+  mul r2, r2, r1
   ldr sp, [r0, r2]
 
   @ trigger an interrupt return to get things moving again (make sure the handler function still exits with a bx to the special value 0xFFFFFFF9)
-  sub r0, sp, 32
-  ldr pc, [r0, 24]
   
-  pop {lr}
   bx lr
 .size SysTick_Handler, .-SysTick_Handler
 
-.type leds_toggle, %function
-leds_toggle:
-  push {lr}
-  bl read_row
-  pop {lr}
-
-  eor r0, r0, 0b01000
-  push {lr}
+.type led_on, %function
+@ --parameters--
+@ r0: row index (0-4 with 0 being the top row)
+@ r1: column index (0-4 with 0 being the left most column)
+@ --return--
+@ none
+led_on:
+  push {r2}
+  ldr r2, =0b1
+  lsl r0, r2, r0
+  push {r1, lr}
   bl write_row_pins
-  pop {lr}
+  pop {r1, lr}
 
-  push {lr}
-  bl read_column
-  pop {lr}
-
-  eor r0, r0, 0b01000
+  ldr r2, =0b1
+  lsl r1, r2, r1
+  ldr r0, =0b11111
+  eor r0, r0, r1
   push {lr}
   bl write_column_pins
   pop {lr}
 
+  pop {r2}
+
   bx lr
-.size leds_toggle, .-leds_toggle
+.size led_on, .-led_on
 
-.type leds_toggle_other, %function
-leds_toggle_other:
-  push {lr}
-  bl read_row
-  pop {lr}
-
-  eor r0, r0, 0b00010
+.type led_off, %function
+@ Interrupts and toggle led
+@ --parameters--
+@ none
+@ --return--
+@ none
+led_off:
+  push {r2}
+  ldr r0, =0b00000
   push {lr}
   bl write_row_pins
   pop {lr}
 
-  push {lr}
-  bl read_column
-  pop {lr}
-
-  eor r0, r0, 0b00010
+  ldr r0, =0b11111
   push {lr}
   bl write_column_pins
   pop {lr}
+  pop {r2}
 
   bx lr
-.size leds_toggle_other, .-leds_toggle_other
+.size led_off, .-led_off
 
 .type start_SysTick, %function
 @ Starts SysTick with interrupts enabled.

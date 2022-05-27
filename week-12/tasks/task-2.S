@@ -78,6 +78,7 @@ create_process:
   str r0, [sp, 4]
   mov r0, 0
   str r0, [sp]
+  bx lr
 .size create_process, .-create_process
 
 .type switch_context, %function
@@ -103,6 +104,7 @@ switch_context:
   @ finally, set the ledblink process running by restoring the pc. 
   @ Make sure that you have declared ledblink as a function, e.g.
   ldr pc, [sp, 24]
+  bx lr
 .size switch_context, .-switch_context
 
 .global SysTick_Handler
