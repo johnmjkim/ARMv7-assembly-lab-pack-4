@@ -15,6 +15,7 @@ main:
   bl init_leds
   pop {lr}
 
+
   @@@@ Set Systick Defaults
   @ Set reload value for 1ms interrupt
   ldr r0, =0x7D00
