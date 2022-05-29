@@ -717,7 +717,7 @@ packet_received:
 .data
 @ Add your state for sender and receiver here
 SENDER_DATA:
-  .word 0, 0, 0, 1, 0, 0, 0, 0, 0, 0
+  .word 0, 0, 0, 0, 1, 0, 0, 0, 0, 0
 
 RECEIVER_DATA:
   .word 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
