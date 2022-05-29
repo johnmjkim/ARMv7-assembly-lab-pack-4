@@ -15,21 +15,23 @@ main:
   bl init_leds
   pop {lr}
 
+  bl create_process1
+  bl create_process2
 
   @@@@ Set Systick Defaults
   @ Set reload value for 1ms interrupt
-  ldr r0, =0x7D00
+  @ ldr r0, =0x7D00
+  ldr r0, =0x300
   bl set_SysTick
   @ Start SysTick interrupt
   bl start_SysTick
 
-  bl create_process1
-  bl create_process2
   b loop
 .size main, .-main
 
 loop:
   nop
+  bl switch_context
   b loop
 
 .type ledblink, %function
@@ -40,7 +42,8 @@ ledblink:
   bl led_on
   pop {lr}
 
-  ldr r0, =0x30D400
+  @ ldr r0, =0x30D400
+  ldr r0, =0x100
   push {lr}
   bl delay
   pop {lr}
@@ -51,7 +54,8 @@ ledblink:
   bl led_off
   pop {lr}
 
-  ldr r0, =0x30D400
+  @ ldr r0, =0x30D400
+  ldr r0, =0x100
   push {lr}
   bl delay
   pop {lr}
@@ -66,7 +70,8 @@ otherblink:
   bl led_on
   pop {lr}
 
-  ldr r0, =0x9C400
+  @ ldr r0, =0x9C400
+  ldr r0, =0x50
   push {lr}
   bl delay
   pop {lr}
@@ -77,7 +82,8 @@ otherblink:
   bl led_off
   pop {lr}
 
-  ldr r0, =0x9C400
+  @ ldr r0, =0x9C400
+  ldr r0, =0x50
   push {lr}
   bl delay
   pop {lr}
@@ -164,30 +170,37 @@ create_process2:
   bx lr
 .size create_process2, .-create_process2
 
-@ .type switch_context, %function
-@ switch_context:
-@   @ restore (i.e. put back) the flags into the xpsr register 
-@   @ (since this is a special register you can’t just ldr into it, 
-@   @ you have to load into a normal register like r0 first 
-@   @ and then use the “move to special register” instruction4 msr apsr_nzcvq, r0)
-@   ldr r0, [sp, 28]
-@   msr apsr_nzcvq, r0
+.type switch_context, %function
+switch_context:
+  @ restore (i.e. put back) the flags into the xpsr register 
+  @ (since this is a special register you can’t just ldr into it, 
+  @ you have to load into a normal register like r0 first 
+  @ and then use the “move to special register” instruction4 msr apsr_nzcvq, r0)
+  ldr r0, =process_table
+  push {lr}
+  bl get_process
+  pop {lr}
+  mov sp, r1
+  sub sp, sp, 32
+  ldr r0, [sp, 28]
+  msr apsr_nzcvq, r0
 
-@   @ restore the rest of the registers except for pc
-@   ldr lr, [sp, 20]
-@   ldr r12, [sp, 16]
-@   ldr r3, [sp, 12]
-@   ldr r2, [sp, 8]
-@   ldr r1, [sp, 4]
-@   ldr r0, [sp]
+  @ restore the rest of the registers except for pc
+  ldr lr, [sp, 20]
+  ldr r12, [sp, 16]
+  ldr r3, [sp, 12]
+  ldr r2, [sp, 8]
+  ldr r1, [sp, 4]
+  ldr r0, [sp]
 
-@   @ make sure the stack pointer sp points to the “new” top of the stack 
-@   @ (i.e. after the ledblink context has been popped off)
+  @ make sure the stack pointer sp points to the “new” top of the stack 
+  @ (i.e. after the ledblink context has been popped off)
 
-@   @ finally, set the ledblink process running by restoring the pc. 
-@   @ Make sure that you have declared ledblink as a function, e.g.
-@   ldr pc, [sp, 24]
-@ .size switch_context, .-switch_context
+  @ finally, set the ledblink process running by restoring the pc. 
+  @ Make sure that you have declared ledblink as a function, e.g.
+  ldr pc, [sp, 24]
+  bx lr
+.size switch_context, .-switch_context
 
 .global SysTick_Handler
 .type SysTick_Handler, %function
@@ -209,15 +222,29 @@ SysTick_Handler:
   moveq r2, 1
 
   str r2, [r0]
-  add r2, 1
-  mov r1, 4
-  mul r2, r2, r1
-  ldr sp, [r0, r2]
+  push {lr}
+  bl get_process
+  pop {lr}
 
-  @ trigger an interrupt return to get things moving again (make sure the handler function still exits with a bx to the special value 0xFFFFFFF9)
-  
+  @ @ trigger an interrupt return to get things moving again (make sure the handler function still exits with a bx to the special value 0xFFFFFFF9)
   bx lr
 .size SysTick_Handler, .-SysTick_Handler
+
+.type get_process, %function
+@ --parameters--
+@ r0: process table
+@ --return--
+@ r1 : process address
+get_process:
+  push {r2}
+  ldr r1, [r0]
+  add r1, 1
+  mov r2, 4
+  mul r2, r2, r1
+  ldr r1, [r0, r2]
+  pop {r2}
+  bx lr
+.size get_process, .-get_process
 
 .type led_on, %function
 @ --parameters--

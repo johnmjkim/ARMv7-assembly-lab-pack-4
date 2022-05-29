@@ -116,6 +116,7 @@ create_process1:
   str r0, [sp, 4]
   mov r0, 0
   str r0, [sp]
+  bx lr
 .size create_process1, .-create_process1
 
 .type create_process2, %function
@@ -155,32 +156,34 @@ create_process2:
   str r0, [sp, 4]
   mov r0, 0
   str r0, [sp]
+  bx lr
 .size create_process2, .-create_process2
 
-@ .type switch_context, %function
-@ switch_context:
-@   @ restore (i.e. put back) the flags into the xpsr register 
-@   @ (since this is a special register you can’t just ldr into it, 
-@   @ you have to load into a normal register like r0 first 
-@   @ and then use the “move to special register” instruction4 msr apsr_nzcvq, r0)
-@   ldr r0, [sp, 28]
-@   msr apsr_nzcvq, r0
+.type switch_context, %function
+switch_context:
+  @ restore (i.e. put back) the flags into the xpsr register 
+  @ (since this is a special register you can’t just ldr into it, 
+  @ you have to load into a normal register like r0 first 
+  @ and then use the “move to special register” instruction4 msr apsr_nzcvq, r0)
+  ldr r0, [sp, 28]
+  msr apsr_nzcvq, r0
 
-@   @ restore the rest of the registers except for pc
-@   ldr lr, [sp, 20]
-@   ldr r12, [sp, 16]
-@   ldr r3, [sp, 12]
-@   ldr r2, [sp, 8]
-@   ldr r1, [sp, 4]
-@   ldr r0, [sp]
+  @ restore the rest of the registers except for pc
+  ldr lr, [sp, 20]
+  ldr r12, [sp, 16]
+  ldr r3, [sp, 12]
+  ldr r2, [sp, 8]
+  ldr r1, [sp, 4]
+  ldr r0, [sp]
 
-@   @ make sure the stack pointer sp points to the “new” top of the stack 
-@   @ (i.e. after the ledblink context has been popped off)
+  @ make sure the stack pointer sp points to the “new” top of the stack 
+  @ (i.e. after the ledblink context has been popped off)
 
-@   @ finally, set the ledblink process running by restoring the pc. 
-@   @ Make sure that you have declared ledblink as a function, e.g.
-@   ldr pc, [sp, 24]
-@ .size switch_context, .-switch_context
+  @ finally, set the ledblink process running by restoring the pc. 
+  @ Make sure that you have declared ledblink as a function, e.g.
+  ldr pc, [sp, 24]
+  bx lr
+.size switch_context, .-switch_context
 
 .global SysTick_Handler
 .type SysTick_Handler, %function
