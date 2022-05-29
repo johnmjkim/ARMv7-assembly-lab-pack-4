@@ -107,7 +107,7 @@ SysTick_Handler:
   mov r2, 4
   mul r2, r1, r2
 
-  ldr r0, =p2300_1w_packet
+  ldr r0, =SENDER_DATA
   ldr r1, [r0, r2]
   lsl r2, r1, 2
 
@@ -139,6 +139,8 @@ GPIOTE_IRQHandler:
 
   @ configure the TIMER0 interrupt period and enable it
   bl init_TIMER0
+  ldr r0, =TIMER0_1MS
+  bl set_TIMER0
   bl start_TIMER0
 
   @ disable the GPIOTE interrupt
@@ -175,25 +177,58 @@ TIMER0_IRQHandler:
   IT EQ
   moveq r1, 1
 
+  @ append the bit to the current message (in the correct location)
+  ldr r0, =packet_received
+  ldr r2, [r0]
+  mov r3, 4
+  mul r2, r2, r3
   ldr r0, =RECEIVER_DATA
+  str r1, [r0, r2]
+  
+  ldr r0, =packet_received
+  ldr r1, [r0]
+  add r1, 1
   str r1, [r0]
 
-  @ append the bit to the current message (in the correct location)
-  
-
   @ check if it has received a full message
-
-
-  @ if it has received a full message it should:
-    @ check the validity of the message
-    @ turn off all LEDS and then turn the on the LED in the message
-    @ disable the TIMER0 interrupt
-    @ clear the GPIOTE pending (we don’t want it interrupting immediately if one was left pending)
-    @ enable the GPIOTE interrupt
-  
+  ldr r0, =packet_received
+  ldr r1, [r0]
+  ldr r2, [r0, 8]
+  cmp r1, r2
+  IT EQ
+  beq is_full_message
   b receive_done
 
+is_full_message:
+  @ if it has received a full message it should:
+  @ check the validity of the message
+  @ turn off all LEDS and then turn the on the LED in the message
+  push {lr}
+  bl decode_message
+  pop {lr}
+
+  @ disable the TIMER0 interrupt
+  bl stop_TIMER0
+
+  @ clear the GPIOTE pending (we don’t want it interrupting immediately if one was left pending)
+  ldr r0, =ADR_GPIOTE
+  ldr r1, =OFS_GPIOTE_EVENTS_IN0
+  mov r2, 0
+  bl clear_bit
+  bl sync
+
+  @ enable the GPIOTE interrupt
+  bl enable_GPIOTE
+  
+  ldr r0, =packet_received
+  ldr r1, [r0, 4]
+  str r1, [r0]
+
   @ clear the TIMER0 pending bit
+  bl clear_TIMER0
+
+  b receive_done
+
 receive_done:
   @ Clear this event
   ldr r0, =ADR_TIMER0
@@ -485,6 +520,107 @@ sync:
   bx lr
 .size sync, .-sync
 
+.type decode_message, %function
+@ check the validity of the message
+@ turn off all LEDS and then turn the on the LED in the message
+@ --parameters--
+@ none
+decode_message:
+  ldr r0, =RECEIVER_DATA
+  @ check start, stop bit
+  ldr r1, [r0]
+  ldr r2, [r0, 36]
+  cmp r1, r2
+  IT EQ
+  beq decode_message_equal
+  b decode_message_reset
+decode_message_equal:
+  cmp r1, 0
+  IT EQ
+  beq decode_message_valid
+  b decode_message_reset
+decode_message_valid:
+  push {lr}
+  bl led_off
+  pop {lr}
+
+  mov r0, 5
+  push {lr}
+  bl get_message_index
+  pop {lr}
+  mov r1, r0
+
+  mov r0, 1
+  push {lr}
+  bl get_message_index
+  pop {lr}
+
+  push {lr}
+  bl led_on
+  pop {lr}
+
+  b decode_message_end
+
+decode_message_reset:
+  push {lr}
+  bl message_reset
+  pop {lr}
+
+decode_message_end:
+  bx lr
+.size decode_message, .-decode_message
+
+.type get_message_index, %function
+@ r0 : start index
+get_message_index:
+  mov r6, r0
+  push {r1-r4}
+  mov r1, 4
+  mov r2, 0
+  add r1, r0
+  add r2, r0
+  ldr r0, =RECEIVER_DATA
+  mov r4, 4
+  mov r5, r2
+get_message_index_loop:
+  cmp r1, r2
+  IT EQ
+  beq get_message_index_end
+  mul r3, r2, r4
+  ldr r3, [r0, r3]
+  add r2, 1
+  cmp r3, 1
+  IT EQ
+  moveq r5, r2
+  b get_message_index_loop
+get_message_index_end:
+
+  pop {r1-r4}
+  sub r0, r5, r6
+  bx lr
+.size get_message_index, .-get_message_index
+
+.type message_reset, %function
+message_reset:
+  push {r0-r5}
+  ldr r0, =RECEIVER_DATA
+  mov r1, 10
+  mov r2, 0
+  mov r3, 0
+  mov r4, 4
+message_reset_loop:
+  cmp r2, r1
+  IT EQ
+  beq message_reset_end
+  mul r5, r2, r4
+  str r3, [r0, r5]
+  add r2, 1
+  b message_reset_loop
+message_reset_end:
+  pop {r0-r5}
+  bx lr
+.size message_reset, .-message_reset
+
 .type led_center_on, %function
 led_center_on:
   push {r0, r1, lr}
@@ -559,13 +695,13 @@ packet_repeat:
 .word 0, 0, 10
 
 .data
-p2300_1w_packet:
-.word 0, 1, 0, 0, 0, 1, 0, 0, 0, 0
+packet_received:
+.word 0, 0, 10
 
 .data
 @ Add your state for sender and receiver here
 SENDER_DATA:
-  .word 0, 1, 0, 0, 0, 1, 0, 0, 0, 0
+  .word 0, 0, 0, 1, 0, 0, 0, 0, 0, 0
 
 RECEIVER_DATA:
-  .word 0
+  .word 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
