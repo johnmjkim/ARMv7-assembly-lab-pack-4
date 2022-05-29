@@ -80,6 +80,10 @@ main:
   @ Start SysTick interrupt
   bl start_SysTick
 
+  mov r7, 0
+  mov r8, 0
+  mov r9, 0
+
 loop:
   nop
   b loop
@@ -99,6 +103,13 @@ SysTick_Handler:
   ldr r0, =packet_repeat
   ldr r1, [r0]
   ldr r2, [r0, 8]
+
+  push {r0, lr}
+  cmp r1, r2
+  IT EQ
+  bleq set_high
+  pop {r0, lr}
+
   cmp r1, r2
   IT EQ
   ldreq r1, [r0, 4]
@@ -111,22 +122,33 @@ SysTick_Handler:
   ldr r1, [r0, r2]
   lsl r2, r1, 2
 
-  ldr r0, =ADR_P0
-  ldr r1, =OFS_GPIO_OUT
-  str r2, [r0, r1]
-
-  pop {r2, r3}
-
   @ to next packet
   ldr r0, =packet_repeat
   ldr r1, [r0]
   add r1, 1
   str r1, [r0]
 
+  ldr r0, =ADR_P0
+  ldr r1, =OFS_GPIO_OUT
+  str r2, [r0, r1]
+
+  pop {r2, r3}
   pop {lr}
+
   bx lr
 .size SysTick_Handler, .-SysTick_Handler
 
+.type set_high, %function
+set_high:
+  push {r1-r2}
+  mov r1, 1
+  lsl r2, r1, 2
+  ldr r0, =ADR_P0
+  ldr r1, =OFS_GPIO_OUT
+  str r2, [r0, r1]
+  pop {r1-r2}
+  bx lr
+.size set_high, .-set_high
 
 @ This interrupt exists to wakeup the receiver, it can also be used to finalize the 
 @ received message if you wish.
@@ -163,6 +185,17 @@ TIMER0_IRQHandler:
   push {lr}
   @ Write your timer receive code here \/\/\/
   @ receive the current bit from Ring2 (P0.02)
+TIMER0_lock:
+  bl sync
+  ldr r0, =packet_received
+  ldr r1, [r0]
+  ldr r0, =packet_repeat
+  ldr r2, [r0]
+  cmp r1, r2
+  IT LT
+  blt TIMER0_unlock
+  b TIMER0_lock
+TIMER0_unlock:
   ldr r0, =ADR_P0
   ldr r1, =OFS_GPIO_IN
   ldr r2, [r0, r1]
@@ -218,6 +251,9 @@ is_full_message:
   bl sync
 
   @ enable the GPIOTE interrupt
+  mov r0, 4 @ Pin 4
+  mov r1, 0 @ Port 0
+  mov r2, 2 @ HiToLo
   bl enable_GPIOTE
   
   ldr r0, =packet_received
@@ -620,26 +656,6 @@ message_reset_end:
   pop {r0-r5}
   bx lr
 .size message_reset, .-message_reset
-
-.type led_center_on, %function
-led_center_on:
-  push {r0, r1, lr}
-  mov r0, 2
-  mov r1, 2
-  bl led_on
-  pop {r0, r1, lr}
-  bx lr
-.size led_center_on, .-led_center_on
-
-.type led_center_off, %function
-led_center_off:
-  push {r0, r1, lr}
-  mov r0, 2
-  mov r1, 2
-  bl led_off
-  pop {r0, r1, lr}
-  bx lr
-.size led_center_off, .-led_center_off
 
 .type led_on, %function
 @ --parameters--
