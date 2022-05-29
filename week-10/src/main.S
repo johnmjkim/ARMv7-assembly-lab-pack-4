@@ -107,7 +107,7 @@ SysTick_Handler:
   mov r2, 4
   mul r2, r1, r2
 
-  ldr r0, =p2300_1w_packet
+  ldr r0, =SENDER_DATA
   ldr r1, [r0, r2]
   lsl r2, r1, 2
 
@@ -136,7 +136,6 @@ GPIOTE_IRQHandler:
   @ Write your wakeup etc. code here \/\/\/
   @ GPIOTE detects falling edge
   @ put variables in place for the receiver to successfully receive the message
-  @ ????
 
   @ configure the TIMER0 interrupt period and enable it
   bl init_TIMER0
@@ -566,7 +565,7 @@ p2300_1w_packet:
 .data
 @ Add your state for sender and receiver here
 SENDER_DATA:
-  .word 0
+  .word 0, 1, 0, 0, 0, 1, 0, 0, 0, 0
 
 RECEIVER_DATA:
   .word 0
